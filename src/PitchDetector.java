@@ -3,14 +3,11 @@ import javax.sound.sampled.TargetDataLine;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.LineUnavailableException;
 
-import org.apache.commons.math3.analysis.function.Cos;
-import org.apache.commons.math3.complex.Complex;
-import org.apache.commons.math3.transform.FastFourierTransformer;
-import org.apache.commons.math3.transform.TransformType;
-import org.apache.commons.math3.util.MathArrays;
 
 public class PitchDetector {
-    // Autocorrelation function
+
+    public boolean listening = false;
+
     public static double[] autocorrelation(short[] inputSignal) {
         int N = inputSignal.length;
         double[] autocorr = new double[N];
@@ -28,6 +25,9 @@ public class PitchDetector {
 
     // Find the pitch (fundamental frequency) from the autocorrelation function
     public static double findPitch(byte[] inputSignal, int sampleRate) {
+
+        // Preprocessing
+
         // Convert the byte array to an array of shorts (16-bit PCM)
         short[] shortSignal = new short[inputSignal.length / 2];
         for (int i = 0; i < shortSignal.length; i++) {
@@ -53,71 +53,43 @@ public class PitchDetector {
         }
 
         // Calculate pitch in Hertz
-        double pitch = (double) sampleRate / peakIndex;
 
-        return pitch;
+        return (double) sampleRate / peakIndex;
     }
 
-    // FFT METHOD
-    private static final int SAMPLE_RATE = 44100; // Sample rate in Hz
-    private static final int WINDOW_SIZE = 1024; // FFT window size (power of 2)
-    private static final int MIN_FREQUENCY = 82;  // Minimum detectable frequency (E2)
-
-    public static double detectPitch(byte[] audioBytes) {
-        if (audioBytes.length != 2 * WINDOW_SIZE) {
-            throw new IllegalArgumentException("Input data size must be twice the window size.");
-        }
-
-        // Convert bytes to doubles (16-bit PCM values)
-        double[] audioData = new double[WINDOW_SIZE];
-        for (int i = 0; i < WINDOW_SIZE; i++) {
-            int sample = (audioBytes[i * 2] & 0xFF) | (audioBytes[i * 2 + 1] << 8);
-            audioData[i] = sample / 32768.0; // Normalize to the range [-1, 1]
-        }
-
-        // Apply a window function to the audio data (e.g., Hamming window)
-        double[] windowedData = MathArrays.ebeMultiply(audioData, getHammingWindow());
-
-        // Perform FFT on the windowed data
-        FastFourierTransformer transformer = new FastFourierTransformer(org.apache.commons.math3.transform.DftNormalization.STANDARD); // CHECK
-        Complex[] fftResult = transformer.transform(windowedData, TransformType.FORWARD); // CHECK
-
-        // Find the peak frequency in the FFT result
-        int peakIndex = findPeakFrequencyIndex(fftResult);
-
-        // Calculate the pitch in Hertz
-        double pitch = peakIndex * SAMPLE_RATE / (double)WINDOW_SIZE;
-
-        return pitch;
+    public void stopListening() {
+        listening = false;
     }
 
-    private static double[] getHammingWindow() {
-        double[] window = new double[WINDOW_SIZE];
-        for (int i = 0; i < WINDOW_SIZE; i++) {
-            window[i] = 0.54 - 0.46 * Math.cos(2 * Math.PI * i / (WINDOW_SIZE - 1));
-        }
-        return window;
-    }
-
-    private static int findPeakFrequencyIndex(Complex[] fftResult) {
-        int maxIndex = -1;
-        double maxMagnitude = Double.NEGATIVE_INFINITY;
-
-        // Start from MIN_FREQUENCY Hz to avoid low-frequency noise
-        int startIndex = (MIN_FREQUENCY * WINDOW_SIZE / SAMPLE_RATE);
-
-        for (int i = startIndex; i < fftResult.length / 2; i++) {
-            double magnitude = fftResult[i].abs();
-            if (magnitude > maxMagnitude) {
-                maxMagnitude = magnitude;
-                maxIndex = i;
-            }
+    public String frequencyToNoteName(double frequency) {
+        if (frequency <= 0) {
+            return "Invalid frequency";
         }
 
-        return maxIndex;
+        double A4Frequency = 440.0; // The frequency of A4 in Hz
+
+        // Calculate the number of semitones away from A4
+        int semitones = (int) Math.round(12 * Math.log(frequency / A4Frequency) / Math.log(2));
+
+        // Define an array of note names
+        String[] noteNames = {
+                "A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#"
+        };
+
+        // Calculate the note index within the octave
+        int noteIndex = (semitones % 12);
+        if (noteIndex < 0) {
+            noteIndex = noteNames.length - Math.abs(noteIndex);
+        }
+
+        return noteNames[noteIndex];
     }
 
     public static void main(String[] args) {
+        PitchDetector pd = new PitchDetector();
+        GUI gui = new GUI();
+        gui.b.addActionListener(e -> pd.stopListening());
+
         AudioFormat audioFormat = new AudioFormat(
                 AudioFormat.Encoding.PCM_SIGNED,
                 44100, // Sample rate (e.g., 44.1 kHz)
@@ -138,24 +110,22 @@ public class PitchDetector {
         }
 
         targetDataLine.start();
+        pd.listening = true;
 
-        GUI gui = new GUI();
-
-        byte[] buffer = new byte[WINDOW_SIZE * 2]; // Buffer size
-        while (true) {
+        byte[] buffer = new byte[1024]; // Buffer size
+        while (pd.listening) {
             targetDataLine.read(buffer, 0, buffer.length);
             // Process the audio data (e.g., save it to a file, analyze it, etc.)
             // Find the pitch
-            double pitchAutoCorr = findPitch(buffer, 44100);
-            double pitchFFT = detectPitch(buffer);
-            System.out.println("AUTOCORR: Detected Pitch (Hz): " + pitchAutoCorr);
-            System.out.println("FFT: Detected Pitch (Hz): " + pitchFFT);
+            double pitch = findPitch(buffer, 44100);
 
-            gui.l1.setText(String.format("AUTOCORR: Detected Pitch (Hz): %.2f", pitchAutoCorr));
-            gui.l2.setText(String.format("FFT: Detected Pitch (Hz): %.2f", pitchFFT));
+            // Update display
+            gui.l1.setText(String.format("Frequency is %.2f Hz", pitch));
+            gui.l2.setText(pd.frequencyToNoteName(pitch));
 
         }
 
-
+        targetDataLine.stop();
+        targetDataLine.close();
     }
 }
