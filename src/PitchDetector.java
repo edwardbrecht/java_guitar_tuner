@@ -86,7 +86,7 @@ public class PitchDetector {
         int peakIndex = findPeakFrequencyIndex(fftResult);
 
         // Calculate the pitch in Hertz
-        double pitch = peakIndex * SAMPLE_RATE / WINDOW_SIZE;
+        double pitch = peakIndex * SAMPLE_RATE / (double)WINDOW_SIZE;
 
         return pitch;
     }
@@ -104,7 +104,7 @@ public class PitchDetector {
         double maxMagnitude = Double.NEGATIVE_INFINITY;
 
         // Start from MIN_FREQUENCY Hz to avoid low-frequency noise
-        int startIndex = (int) (MIN_FREQUENCY * WINDOW_SIZE / SAMPLE_RATE);
+        int startIndex = (MIN_FREQUENCY * WINDOW_SIZE / SAMPLE_RATE);
 
         for (int i = startIndex; i < fftResult.length / 2; i++) {
             double magnitude = fftResult[i].abs();
@@ -139,6 +139,8 @@ public class PitchDetector {
 
         targetDataLine.start();
 
+        GUI gui = new GUI();
+
         byte[] buffer = new byte[WINDOW_SIZE * 2]; // Buffer size
         while (true) {
             targetDataLine.read(buffer, 0, buffer.length);
@@ -148,6 +150,10 @@ public class PitchDetector {
             double pitchFFT = detectPitch(buffer);
             System.out.println("AUTOCORR: Detected Pitch (Hz): " + pitchAutoCorr);
             System.out.println("FFT: Detected Pitch (Hz): " + pitchFFT);
+
+            gui.l1.setText(String.format("AUTOCORR: Detected Pitch (Hz): %.2f", pitchAutoCorr));
+            gui.l2.setText(String.format("FFT: Detected Pitch (Hz): %.2f", pitchFFT));
+
         }
 
 
