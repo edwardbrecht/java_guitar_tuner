@@ -24,7 +24,7 @@ public class PitchDetector {
     }
 
     // Find the pitch (fundamental frequency) from the autocorrelation function
-    public static double findPitch(byte[] inputSignal, int sampleRate) {
+    public static double findFrequency(byte[] inputSignal, int sampleRate) {
 
         // Preprocessing
 
@@ -61,15 +61,12 @@ public class PitchDetector {
         listening = false;
     }
 
-    public String frequencyToNoteName(double frequency) {
+    public String getNoteName(double frequency) {
         if (frequency <= 0) {
             return "Invalid frequency";
         }
 
-        double A4Frequency = 440.0; // The frequency of A4 in Hz
-
-        // Calculate the number of semitones away from A4
-        int semitones = (int) Math.round(12 * Math.log(frequency / A4Frequency) / Math.log(2));
+        int semitones = getSemitones(frequency);
 
         // Define an array of note names
         String[] noteNames = {
@@ -82,7 +79,21 @@ public class PitchDetector {
             noteIndex = noteNames.length - Math.abs(noteIndex);
         }
 
-        return noteNames[noteIndex];
+        int octave = semitones / 12 + 4;
+
+        return noteNames[noteIndex] + octave;
+    }
+
+    private int getSemitones(double frequency) {
+        double A4Frequency = 440.0; // The frequency of A4 in Hz
+        // Calculate the number of semitones away from A4
+        return (int) Math.round(12 * Math.log(frequency / A4Frequency) / Math.log(2));
+    }
+
+    private int getCents(double frequency) {
+        int semitones = getSemitones(frequency);
+        double centerFreq = 440 * Math.pow(2, semitones / 12.0);
+        return (int) Math.round(1200 * Math.log(frequency / centerFreq) / Math.log(2));
     }
 
     public static void main(String[] args) {
@@ -117,11 +128,11 @@ public class PitchDetector {
             targetDataLine.read(buffer, 0, buffer.length);
             // Process the audio data (e.g., save it to a file, analyze it, etc.)
             // Find the pitch
-            double pitch = findPitch(buffer, 44100);
+            double frequency = findFrequency(buffer, 44100);
 
             // Update display
-            gui.l1.setText(String.format("Frequency is %.2f Hz", pitch));
-            gui.l2.setText(pd.frequencyToNoteName(pitch));
+            gui.l1.setText(String.format("Frequency is %.2f Hz", frequency));
+            gui.l2.setText(pd.getNoteName(frequency) + " + " + pd.getCents(frequency) + " Cents");
 
         }
 
