@@ -134,8 +134,7 @@ public class PitchDetector {
 
             // Update display
             gui.l1.setText(String.format("Frequency is %.2f Hz", frequency));
-            // DOUBLE CHECK INDICATORS ARE CORRECT
-            gui.l2.setText((cents > 5 || (cents <= 5 && cents >= -5)? " - " : "   ") + note + (cents < -5 || (cents <= 5 && cents >= -5) ? " - " : "   "));
+            gui.l2.setText((cents >= -5 ? " - " : "   ") + note + (cents <= 5 ? " - " : "   "));
 
         }
 
