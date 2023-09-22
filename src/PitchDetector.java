@@ -129,10 +129,13 @@ public class PitchDetector {
             // Process the audio data (e.g., save it to a file, analyze it, etc.)
             // Find the pitch
             double frequency = findFrequency(buffer, 44100);
+            String note = pd.getNoteName(frequency);
+            int cents = pd.getCents(frequency);
 
             // Update display
             gui.l1.setText(String.format("Frequency is %.2f Hz", frequency));
-            gui.l2.setText(pd.getNoteName(frequency) + " + " + pd.getCents(frequency) + " Cents");
+            // DOUBLE CHECK INDICATORS ARE CORRECT
+            gui.l2.setText((cents > 5 || (cents <= 5 && cents >= -5)? " - " : "   ") + note + (cents < -5 || (cents <= 5 && cents >= -5) ? " - " : "   "));
 
         }
 

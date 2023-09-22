@@ -13,8 +13,8 @@ public class GUI extends JFrame{
 
         f = new JFrame("Pitch Detector");
 
-        l1 = new JLabel("AutoCorrelation");
-        l2 = new JLabel("FFT");
+        l1 = new JLabel("Frequency");
+        l2 = new JLabel("Note");
 
         b = new JButton("Stop Listening");
 
